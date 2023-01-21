@@ -36,7 +36,7 @@ fn main(){
                         true => break,
                         false => { 
                             println!("This is your opponents board, 'X' means that a place has been shot\n\n");
-                            print_board(cmd);
+                            print_board(&cmd);
                         }
                     }
 
@@ -70,7 +70,7 @@ fn main(){
                         true => break,
                         false => {
                             println!("This is your board, the S's are your ships and the O are the places where your opponent has shot\n\n");
-                            print_board(cmd);
+                            print_board(&cmd);
                         }
                     }
                     print!("Waiting for opponent to shoot");

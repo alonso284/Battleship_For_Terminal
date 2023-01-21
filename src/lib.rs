@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::io::Read;
 use std::io::Write;
 use termion::color;
-
+use termion::terminal_size;
 use rand::random;
 use std::io;
 
@@ -19,6 +19,37 @@ pub struct Player {
     board: [[Cell;8];8],
     ship_units_left: usize,
 }
+#[derive(Debug)]
+pub struct Fleet {
+    carrier_count: usize,
+    battleship_count: usize,
+    cruiser_count: usize,
+    destroyer_count: usize,
+    board: String,
+    ships_locations: [Option<(Position, Ships)>; 10],
+    ships_placed: usize,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Position {
+    pub x: usize,
+    pub y: usize,
+    pub orientation: Orientation,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum Orientation {
+    Vertical,
+    Horizontal,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum Ships {
+    Carrier,
+    Battleship,
+    Cruiser,
+    Destroyer,
+}
 
 #[derive(Copy, Clone)]
 enum Cell {
@@ -31,6 +62,122 @@ pub enum Shot {
     Hit,
     Miss,
 }
+
+impl Fleet {
+    // new Fleet
+    pub fn new() -> Fleet {
+        Fleet {
+            carrier_count: 1,
+            battleship_count: 2,
+            cruiser_count: 3,
+            destroyer_count: 4,
+            board: String::from(format!("{}", "O".repeat(64))),
+            ships_locations: [None; 10],
+            ships_placed: 0,
+        }
+    }
+    pub fn add_ship(&mut self, ship_type: Ships, (x, y):(usize, usize), orientation: Orientation) -> Result<(), String> {
+
+        let position = Position {
+            x, y, orientation,
+        };
+        // Check if ships of that type are left
+        if match ship_type {
+            Ships::Carrier => self.carrier_count,
+            Ships::Battleship => self.battleship_count,
+            Ships::Cruiser => self.cruiser_count,
+            Ships::Destroyer => self.destroyer_count,
+        } <= 0 {
+            return Err(String::from(format!("No {:?}s left", ship_type)));
+        }
+
+        // Get size of ship to free space
+        let free_space = size_of(&ship_type);
+
+        // Get if there is enough space in the board to place ship
+        if match position.orientation {
+            Orientation::Vertical => position.x,
+            Orientation::Horizontal => position.y,
+        } + free_space - 1 > 8 {
+            return Err(String::from("There is no enough space to place ship"));
+        }
+
+        // Get splice of string and coordinates to access
+        let mut board_bytes = [0u8;64];
+        let mut iterator = self.board.bytes();
+        for i in 0..64{
+            board_bytes[i] = iterator.next().unwrap();
+        }
+
+        let (mut x, mut y) = (position.x - 1, position.y - 1);
+
+        // Check if there are no ships in the way
+        for _ in 0..free_space {
+            let cell = x*8 + y;
+            if let b'X' =  board_bytes[cell] {
+                return Err(String::from("One of the cells has been already occupied"));
+            }
+            match position.orientation {
+                Orientation::Vertical => x += 1,
+                Orientation::Horizontal => y += 1,
+            }
+        }
+        
+        // Modify board and place the shape
+        let (mut x, mut y) = (position.x - 1, position.y - 1);
+        for _ in 0..free_space {
+            let cell = x*8 + y;
+            board_bytes[cell] = b'X';
+            match position.orientation {
+                Orientation::Vertical => x += 1,
+                Orientation::Horizontal => y += 1,
+            }
+        }
+
+        // Add location of ship
+       self.ships_locations[self.ships_placed] = Some((position, ship_type));
+       // Aument the count of ships placed
+       self.ships_placed += 1;
+       // Reduce count of ship type
+        match ship_type {
+            Ships::Carrier => self.carrier_count -= 1,
+            Ships::Battleship => self.battleship_count -= 1,
+            Ships::Cruiser => self.cruiser_count -= 1,
+            Ships::Destroyer => self.destroyer_count -= 1,
+        }
+        self.board = String::from_utf8_lossy(&board_bytes).to_string();
+
+        Ok(())
+    }
+
+    pub fn get_board(&self) -> &String {
+        &self.board
+    }
+
+    pub fn print_status(&self){
+        for ship in self.ships_locations{
+            match ship {
+            Some(ship) => println!("There is a {:?} in position ({}, {}) with orientation {:?}", ship.1, ship.0.x, ship.0.y, ship.0.orientation),
+            None => {},
+            }
+        }
+    }
+
+    pub fn all_ships_placed(&self) -> bool {
+        self.ships_placed == 10
+    }
+}
+
+
+fn size_of(ship: &Ships) -> usize {
+    match ship {
+        Ships::Carrier => 5,
+        Ships::Battleship => 4,
+        Ships::Cruiser => 3,
+        Ships::Destroyer => 2,
+    }
+}
+
 
 // Player functions
 impl Player {
@@ -159,38 +306,36 @@ pub fn connect_player(listener: &TcpListener) -> Result<Player, std::io::Error> 
 
     Ok(player)
 }
-// Cell::Shot => 'X',
-// Cell::Ship => { match show_ships {
-//    true => 'S',
-//    false => 'O',
-// }
-// },
-// Cell::Free => 'O',
-pub fn print_board(board: String){
+
+pub fn print_board(board: &String){
+    let (x, _) = terminal_size().unwrap();
+    let margin:usize = x as usize/2 - 27;
     let mut it = board.chars();
-    let upper_case = String::from("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    let upper_case = String::from("ABCDEFGH");
     let mut rows = upper_case.chars();
-    print!( "{}", " ".repeat(5));
+    print!( "{}{}", " ".repeat(margin), " ".repeat(5));
     for column in String::from("12345678").chars(){
         print!( "   {}  ", column);
     }
     print!( "\n");
     for _ in 0..8{
-        print!( "     ┼{}\n", "⎯⎯⎯⎯⎯┼".repeat(8));
-        print!( "     |{}\n", "     ⎪".repeat(8));
-        print!( "  {}  |", rows.next().unwrap());
+        print!( "{}     ┼{}\n", " ".repeat(margin), "⎯⎯⎯⎯⎯┼".repeat(8));
+        print!( "{}     |{}\n", " ".repeat(margin), "     ⎪".repeat(8));
+        print!( "{}  {}  |", " ".repeat(margin), rows.next().unwrap());
         for _ in 0..8 {
             let cell = it.next().unwrap();
             match cell {
-             'X' => print!( "  {}{}{}  ⎪", color::Fg(color::Red), cell, color::Fg(color::Reset)),
-             'S' => print!( "  {}{}{}  ⎪", color::Fg(color::Yellow), cell, color::Fg(color::Reset)),
-             _ =>   print!( "  {}{}{}  ⎪", color::Fg(color::LightBlue), cell, color::Fg(color::Reset)),
+             'X' => print!( "  {}{}{}  ⎪",color::Fg(color::Red), cell, color::Fg(color::Reset)),
+             'S' => print!( "  {}{}{}  ⎪",  color::Fg(color::Yellow), cell, color::Fg(color::Reset)),
+             _ =>   print!( "  {}{}{}  ⎪",  color::Fg(color::LightBlue), cell, color::Fg(color::Reset)),
             }
         }
         print!( "\n");
-        print!( "     |{}\n", "     ⎪".repeat(8));
+        print!( "{}     |{}\n", " ".repeat(margin), "     ⎪".repeat(8));
     }
-    print!( "     ┼{}\n", "⎯⎯⎯⎯⎯┼".repeat(8));
+    print!( "{}     ┼{}\n", " ".repeat(margin), "⎯⎯⎯⎯⎯┼".repeat(8));
     print!( "\n");
     println!();
 }
+
+
