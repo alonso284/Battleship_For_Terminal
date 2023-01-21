@@ -1,4 +1,5 @@
 use terminal_battle_ship::*;
+
 use std::net::TcpListener;
 
 fn main(){
@@ -14,8 +15,8 @@ fn main(){
     let mut player_two = connect_player(&listener).unwrap();
     println!("Player 2 connected {}", rcv(&mut player_two.socket).unwrap());
 
-    send(&mut player_one.socket, b"All player have successfully connected!").unwrap();
-    send(&mut player_two.socket, b"All player have successfully connected!").unwrap();
+    send(&mut player_one.socket, b"TRUE").unwrap();
+    send(&mut player_two.socket, b"TRUE").unwrap();
     println!("Player 1 is ready to begin game {}", rcv(&mut player_one.socket).unwrap());
     println!("Player 2 is ready to begin game {}", rcv(&mut player_two.socket).unwrap());
 
@@ -64,8 +65,11 @@ fn handle_turn(in_play: &mut Player, in_wait: &mut Player){
         match in_wait.receive_shot(rcv(&mut in_play.socket).unwrap()) {
             Shot::Miss => break,
             Shot::Hit => {
-                if in_wait.in_sunk(){
+                if in_wait.is_sunk(){
+                    println!("Player in wait ships are sunk {}", in_wait.is_sunk());
                     break;
+                }else{
+                    continue;
                 }
             },
         }

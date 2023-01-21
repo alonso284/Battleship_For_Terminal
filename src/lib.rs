@@ -3,6 +3,7 @@ use std::net::TcpListener;
 use std::net::SocketAddr;
 use std::io::Read;
 use std::io::Write;
+use termion::color;
 
 use rand::random;
 use std::io;
@@ -87,18 +88,13 @@ impl Player {
         self.board[x][y] = Cell::Shot;
 
         match shot {
-            Cell::Ship => Shot::Hit,
+            Cell::Ship => {
+                self.ship_units_left -= 1;
+                Shot::Hit
+            },
             Cell::Free => Shot::Miss,
             _ => Shot::Miss,
         }
-    }
-
-    pub fn clear_shot(&self, x:usize, y:usize) -> bool{
-        // match self.board[x][y] {
-        //     Cell::Shot => false,
-        //     _ => true;
-        // }
-        true
     }
 
     // Return true if all ship units have been sunk
@@ -114,7 +110,6 @@ impl Player {
 }
 
 pub fn get_play() -> Result<String, String> {
-    println!("Enter [row][column]");
     let mut play = String::new();
     io::stdin().read_line(&mut play).unwrap();
     let play = play.trim();
@@ -127,8 +122,8 @@ pub fn get_play() -> Result<String, String> {
     let x = iterator.next().unwrap();
     let y = iterator.next().unwrap();
 
-    if x < 'A' || 'G' < x{
-        return Err(String::from("First coordinate must be between A and Z"));
+    if x < 'A' || 'H' < x{
+        return Err(String::from("First coordinate must be between A and H"));
     }
     if y < '1' || '8' < y{
         return Err(String::from("Second coordinate must be between 1 and 8"));
@@ -141,14 +136,14 @@ pub fn send(stream:&mut TcpStream, msg: &[u8]) -> Result<(), String> {
     stream.write(msg).unwrap();
     stream.flush().unwrap();
     std::thread::sleep(std::time::Duration::new(2,0));
-    println!("Sending message: {}", String::from_utf8_lossy(msg).to_string());
+    // println!("Sending message: {}", String::from_utf8_lossy(msg).to_string());
     Ok(())
 }
 
 pub fn rcv(stream:&mut TcpStream) -> Result<String, String>{
     let mut buffer = [0u8;1024];
     stream.read(&mut buffer).unwrap();
-    println!("Recieving message: {}", String::from_utf8_lossy(&buffer));
+    // println!("Recieving message: {}", String::from_utf8_lossy(&buffer));
     Ok(String::from_utf8_lossy(&buffer).to_string())
 }
 
@@ -164,14 +159,38 @@ pub fn connect_player(listener: &TcpListener) -> Result<Player, std::io::Error> 
 
     Ok(player)
 }
-
+// Cell::Shot => 'X',
+// Cell::Ship => { match show_ships {
+//    true => 'S',
+//    false => 'O',
+// }
+// },
+// Cell::Free => 'O',
 pub fn print_board(board: String){
     let mut it = board.chars();
-    for _ in 0..8{
-        for _ in 0..8 {
-            print!("{} ", it.next().unwrap());
-        }
-        println!();
+    let upper_case = String::from("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    let mut rows = upper_case.chars();
+    print!( "{}", " ".repeat(5));
+    for column in String::from("12345678").chars(){
+        print!( "   {}  ", column);
     }
+    print!( "\n");
+    for _ in 0..8{
+        print!( "     ┼{}\n", "⎯⎯⎯⎯⎯┼".repeat(8));
+        print!( "     |{}\n", "     ⎪".repeat(8));
+        print!( "  {}  |", rows.next().unwrap());
+        for _ in 0..8 {
+            let cell = it.next().unwrap();
+            match cell {
+             'X' => print!( "  {}{}{}  ⎪", color::Fg(color::Red), cell, color::Fg(color::Reset)),
+             'S' => print!( "  {}{}{}  ⎪", color::Fg(color::Yellow), cell, color::Fg(color::Reset)),
+             _ =>   print!( "  {}{}{}  ⎪", color::Fg(color::LightBlue), cell, color::Fg(color::Reset)),
+            }
+        }
+        print!( "\n");
+        print!( "     |{}\n", "     ⎪".repeat(8));
+    }
+    print!( "     ┼{}\n", "⎯⎯⎯⎯⎯┼".repeat(8));
+    print!( "\n");
     println!();
 }
