@@ -7,7 +7,7 @@ The client will be the players, two people should connect from client to begin t
 With this game you will be able to play battle ship from your terminal with people inside your same network.
 You can change the size of the board and the amount of shisp in the lib.rs file
 
-DEMO VIDEO
+https://user-images.githubusercontent.com/57689554/213902920-a41dad56-d8a7-4878-9c48-e399d94658e5.mov
 
 # TODO
 - Enable rematch
