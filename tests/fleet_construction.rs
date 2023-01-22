@@ -38,7 +38,7 @@ fn stop_from_ship_count(){
 #[test]
 fn stop_from_out_of_bound(){
     let mut fleet = Fleet::new();
-    if let Err(e) = fleet.add_ship(Ships::Carrier, (5,1), Orientation::Vertical) {
+    if let Err(e) = fleet.add_ship(Ships::Carrier, (7,1), Orientation::Vertical) {
         println!("Error while adding ship: {}", e);
         assert_eq!(e, "There is no enough space to place ship");
     }

@@ -5,28 +5,41 @@ use std::io::Write;
 use termion::color;
 
 fn main(){
-    let mut stream = match TcpStream::connect(format!("{}:{}", IP, PORT)){
+    // Get IP address of server
+    let mut ip = String::new();
+    print!("Enter the IP address of the server: ");
+    std::io::stdout().flush().unwrap();
+    std::io::stdin().read_line(&mut ip).unwrap();
+    let ip = ip.trim();
+
+    // Connect to serevr
+    let mut stream = match TcpStream::connect(format!("{}:{}", ip, PORT)){
         Ok(stream) => stream,
-        Err(e) => panic!("Could to server in server in {}:{}: {}", IP, PORT, e),
+        Err(e) => panic!("Could to server in server in {}:{}: {}", ip, PORT, e),
     };
-
-    // let mut screen = std::io::stdout().into_alternate_screen().unwrap();
-
     println!("Successfully connected to server {}", rcv(&mut stream).unwrap());
-    send(&mut stream, b"TRUE").unwrap();
+
+    // Create fleet
+    let my_fleet = Fleet::build_fleet();
+    send(&mut stream, my_fleet.as_bytes()).unwrap();
+    println!("Succesfully built fleet");
+    println!("Waiting for other player to join");
+
+    // Begin once both players are connected
     println!("All players have connected, beggining game {}", rcv(&mut stream).unwrap());
     send(&mut stream, b"TRUE").unwrap();
     println!("\n\nThe game is about to start");
-    // screen.flush().unwrap();
-    std::thread::sleep(std::time::Duration::new(3,0));
 
     loop {
+        // Get turn type form server
         let turn = rcv(&mut stream).unwrap();
         send(&mut stream, b"TRUE").unwrap();
 
         match &turn[..4] {
+            // Play turn functionality
             turn if  turn == String::from("PLAY") => {
                 loop {
+                    // Get "ET" (End of Turn) and end turn or load the map
                     let cmd = rcv(&mut stream).unwrap() ;
                     send(&mut stream, b"TRUE").unwrap();
                     let mut screen = std::io::stdout().into_alternate_screen().unwrap();
@@ -39,9 +52,9 @@ fn main(){
                             print_board(&cmd);
                         }
                     }
-
-                   let _ = rcv(&mut stream).unwrap() ;
+                    let _ = rcv(&mut stream).unwrap() ;
                     
+                    // Get players cell to shoot
                     loop {
                         print!("Enter The cell you want to shoot [row][column]: ");
                         screen.flush().unwrap();
@@ -59,8 +72,10 @@ fn main(){
                     }
                 }
             },
+            // Wait turn funcionality
             turn if turn == String::from("WAIT") => {
                 loop {
+                    // Get "ET" (End of Turn) and end turn or load the map
                     let cmd = rcv(&mut stream).unwrap() ;
                     send(&mut stream, b"TRUE").unwrap();
                     let mut screen = std::io::stdout().into_alternate_screen().unwrap();
@@ -77,6 +92,7 @@ fn main(){
                     screen.flush().unwrap();
                 }
             },
+            // If the turn is neither of the above, the game has ended
             status => {
                 // End Game
                 match status {
@@ -88,6 +104,5 @@ fn main(){
                 break;
             }
         }
-
     }
 }
