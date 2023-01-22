@@ -30,11 +30,11 @@ fn main(){
                     let cmd = rcv(&mut stream).unwrap() ;
                     send(&mut stream, b"TRUE").unwrap();
                     let mut screen = std::io::stdout().into_alternate_screen().unwrap();
-                    println!("Its you turn!");
 
                     match cmd[0..2] == String::from("ET") {
                         true => break,
                         false => { 
+                            println!("Its you turn!");
                             println!("This is your opponents board, 'X' means that a place has been shot\n\n");
                             print_board(&cmd);
                         }
@@ -64,11 +64,11 @@ fn main(){
                     let cmd = rcv(&mut stream).unwrap() ;
                     send(&mut stream, b"TRUE").unwrap();
                     let mut screen = std::io::stdout().into_alternate_screen().unwrap();
-                    println!("Take cover! It's the opponents turn");
 
                     match cmd[0..2] == String::from("ET") {
                         true => break,
                         false => {
+                            println!("Take cover! It's the opponents turn");
                             println!("This is your board, the S's are your ships and the O are the places where your opponent has shot\n\n");
                             print_board(&cmd);
                         }
